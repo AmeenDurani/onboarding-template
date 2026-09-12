@@ -30,6 +30,8 @@ public:
 
   const std::vector<double> &operator()(std::size_t i) const;
   std::vector<double> &operator()(std::size_t i);
+
+  void copy_boundary(const Grid& ref);
 };
 
 Grid::Grid(std::size_t rows, std::size_t cols) {
@@ -54,6 +56,18 @@ const std::vector<double> &Grid::operator()(std::size_t i) const {
 
 std::vector<double> &Grid::operator()(std::size_t i) { return grid_[i]; }
 
+void Grid::copy_boundary(const Grid& ref) {
+  // Top and Bottom
+  grid_[0] = ref(0);
+  grid_[rows_ - 1] = ref(rows_ - 1);
+
+  // Row by Row
+  for (std::size_t i = 1; i < rows_ - 1; ++i) {
+    grid_[i][0] = ref(i, 0);
+    grid_[i][cols_ - 1] = ref(i, cols_ - 1);
+  }
+}
+
 void calculate_row(const std::vector<double> &top,
                    const std::vector<double> &middle,
                    const std::vector<double> &bottom,
@@ -77,7 +91,9 @@ void calculate_row_group(const Grid &input_grid, Grid &output_grid,
 // values unchanged from old_grid to new_grid. Implement your solution here.
 void apply_stencil(const Grid &old_grid, Grid &new_grid) {
   auto [rows, cols] = old_grid.get_grid_dims();
-  new_grid = old_grid;
+  
+  new_grid.copy_boundary(old_grid);
+  
   if (rows < 3 || cols < 3)
     return;
 
