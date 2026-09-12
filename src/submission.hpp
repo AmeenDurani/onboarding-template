@@ -65,14 +65,14 @@ void apply_stencil(const Grid &old_grid, Grid &new_grid) {
 
   new_grid.copy_boundary(old_grid);
 
-  const double* __restrict src = old_grid.data();
-  double* __restrict dst = new_grid.data();
+  const double *__restrict src = old_grid.data();
+  double *__restrict dst = new_grid.data();
 
   for (std::size_t i = 1; i < rows - 1; ++i) {
-    const double* __restrict srow  = src + i * cols;
-    const double* __restrict srowU = src + (i - 1) * cols;
-    const double* __restrict srowD = src + (i + 1) * cols;
-    double* __restrict drow = dst + i * cols;
+    const double *__restrict srow = src + i * cols;
+    const double *__restrict srowU = src + (i - 1) * cols;
+    const double *__restrict srowD = src + (i + 1) * cols;
+    double *__restrict drow = dst + i * cols;
 
     for (std::size_t j = 1; j < cols - 1; ++j) {
       drow[j] = 0.5 * srow[j] +
