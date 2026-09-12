@@ -47,3 +47,17 @@ For every element, recall that we'd be doing this check 5 times per interior nod
 | 2   | 399.500      | 0.564 |
 | 3   | 396.338      | 0.562 |
 | 4   | 527.738      | 0.441 |
+
+## Optimization 3
+### Observation
+
+We don't actually need to copy the whole grid to satisfy the halo conditions (constant BCs). A whole bunch of computation is wasted for copying the old grid to the new one, when instead we can create another wrapper function to satisfy the conditions by iterating over the grid manually.
+
+### Performance
+
+| Run | Runtime (ms) | Score |
+|---:|-------------:|------:|
+| 1   | 177.214      | 0.935 |
+| 2   | 176.190     | 1.010 |
+| 3   | 176.958      | 1.021 |
+| 4   | 188.581     | 0.966 |
