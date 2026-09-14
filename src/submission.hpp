@@ -5,6 +5,7 @@
 #include <thread>
 #include <tuple>
 #include <vector>
+#include <omp.h>
 
 class Grid {
 private:
@@ -68,6 +69,7 @@ void apply_stencil(const Grid &old_grid, Grid &new_grid) {
   const double *__restrict src = old_grid.data();
   double *__restrict dst = new_grid.data();
 
+  #pragma omp parallel for
   for (std::size_t i = 1; i < rows - 1; ++i) {
     const double *__restrict srow = src + i * cols;
     const double *__restrict srowU = src + (i - 1) * cols;
