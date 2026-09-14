@@ -1,7 +1,5 @@
 #include "submission.hpp"
 
-#include <omp.h>
-
 Grid::Grid(std::size_t rows, std::size_t cols)
     : nodes(rows * cols), rows_(rows), cols_(cols) {}
 
