@@ -76,6 +76,7 @@ void apply_stencil(const Grid &old_grid, Grid &new_grid) {
     const double *__restrict srowD = src + (i + 1) * cols;
     double *__restrict drow = dst + i * cols;
 
+    #pragma omp simd
     for (std::size_t j = 1; j < cols - 1; ++j) {
       drow[j] = 0.5 * srow[j] +
                 0.125 * (srowU[j] + srowD[j] + srow[j - 1] + srow[j + 1]);
