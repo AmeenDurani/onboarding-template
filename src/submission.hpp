@@ -60,10 +60,10 @@ void Grid::copy_boundary(const Grid &ref) {
 
 void apply_stencil(const Grid &old_grid, Grid &new_grid) {
   auto [rows, cols] = old_grid.get_dimensions();
+  new_grid.copy_boundary(old_grid);
+
   if (rows < 3 || cols < 3)
     return;
-
-  new_grid.copy_boundary(old_grid);
 
   const double *__restrict src = old_grid.data();
   double *__restrict dst = new_grid.data();
