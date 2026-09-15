@@ -49,17 +49,19 @@ inline double Grid::operator()(std::size_t i, std::size_t j) const {
 }
 
 inline void Grid::copy_boundary(const Grid &ref) {
-  // Top and Bottom rows, full width.
-  for (std::size_t i = 0; i < cols_; ++i) {
-    nodes[i] = ref(0, i);
-    nodes[(rows_ - 1) * cols_ + i] = ref(rows_ - 1, i);
-  }
+  #pragma omp parallel
+  {
+    #pragma omp for
+    for (std::size_t i = 0; i < cols_; ++i) {
+      nodes[i] = ref(0, i);
+      nodes[(rows_ - 1) * cols_ + i] = ref(rows_ - 1, i);
+    }
 
-  // Left and right columns of the remaining rows; corners are already
-  // covered by the top/bottom loop above, so skip row 0 and rows_ - 1.
-  for (std::size_t i = 1; i < rows_ - 1; ++i) {
-    nodes[i * cols_] = ref(i, 0);
-    nodes[i * cols_ + cols_ - 1] = ref(i, cols_ - 1);
+    #pragma omp for
+    for (std::size_t i = 1; i < rows_ - 1; ++i) {
+      nodes[i * cols_] = ref(i, 0);
+      nodes[i * cols_ + cols_ - 1] = ref(i, cols_ - 1);
+    }
   }
 }
 
@@ -94,7 +96,6 @@ inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
     }
   }
 }
-
 
 // inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
 //   auto [rows, cols] = old_grid.get_dimensions();
