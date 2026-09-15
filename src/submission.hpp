@@ -49,24 +49,18 @@ inline double Grid::operator()(std::size_t i, std::size_t j) const {
 }
 
 inline void Grid::copy_boundary(const Grid &ref) {
-  #pragma omp parallel sections
+  #pragma omp parallel
   {
-    #pragma omp section
-    {
-      #pragma omp for
-      for (std::size_t i = 0; i < cols_; ++i) {
-        nodes[i] = ref(0, i);
-        nodes[(rows_ - 1) * cols_ + i] = ref(rows_ - 1, i);
-      }
+    #pragma omp for
+    for (std::size_t i = 0; i < cols_; ++i) {
+      nodes[i] = ref(0, i);
+      nodes[(rows_ - 1) * cols_ + i] = ref(rows_ - 1, i);
     }
 
-    #pragma omp section
-    {
-      #pragma omp for
-      for (std::size_t i = 1; i < rows_ - 1; ++i) {
-        nodes[i * cols_] = ref(i, 0);
-        nodes[i * cols_ + cols_ - 1] = ref(i, cols_ - 1);
-      }
+    #pragma omp for
+    for (std::size_t i = 1; i < rows_ - 1; ++i) {
+      nodes[i * cols_] = ref(i, 0);
+      nodes[i * cols_ + cols_ - 1] = ref(i, cols_ - 1);
     }
   }
 }
