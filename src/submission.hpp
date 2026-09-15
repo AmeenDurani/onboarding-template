@@ -49,18 +49,24 @@ inline double Grid::operator()(std::size_t i, std::size_t j) const {
 }
 
 inline void Grid::copy_boundary(const Grid &ref) {
-  #pragma omp parallel
+  #pragma omp parallel sections
   {
-    #pragma omp for
-    for (std::size_t i = 0; i < cols_; ++i) {
-      nodes[i] = ref(0, i);
-      nodes[(rows_ - 1) * cols_ + i] = ref(rows_ - 1, i);
+    #pragma omp section
+    {
+      #pragma omp for
+      for (std::size_t i = 0; i < cols_; ++i) {
+        nodes[i] = ref(0, i);
+        nodes[(rows_ - 1) * cols_ + i] = ref(rows_ - 1, i);
+      }
     }
 
-    #pragma omp for
-    for (std::size_t i = 1; i < rows_ - 1; ++i) {
-      nodes[i * cols_] = ref(i, 0);
-      nodes[i * cols_ + cols_ - 1] = ref(i, cols_ - 1);
+    #pragma omp section
+    {
+      #pragma omp for
+      for (std::size_t i = 1; i < rows_ - 1; ++i) {
+        nodes[i * cols_] = ref(i, 0);
+        nodes[i * cols_ + cols_ - 1] = ref(i, cols_ - 1);
+      }
     }
   }
 }
@@ -97,6 +103,8 @@ inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
   }
 }
 
+// DEPRECATED TILING CODE.
+//
 // inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
 //   auto [rows, cols] = old_grid.get_dimensions();
 //   new_grid.copy_boundary(old_grid);
