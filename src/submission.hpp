@@ -4,6 +4,8 @@
 #include <tuple>
 #include <vector>
 
+constexpr std::size_t TILE_SIZE = 32;
+
 // 2D grid of doubles stored as a single row-major buffer.
 class Grid {
 private:
@@ -75,21 +77,37 @@ inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
   const double *__restrict src = old_grid.data();
   double *__restrict dst = new_grid.data();
 
-  // Interior rows are independent, so parallelize across them.
-  #pragma omp parallel for
-  for (std::size_t i = 1; i < rows - 1; ++i) {
-    const double *__restrict srow = src + i * cols;
-    const double *__restrict srowU = src + (i - 1) * cols;
-    const double *__restrict srowD = src + (i + 1) * cols;
-    double *__restrict drow = dst + i * cols;
+  // Obtain max number of tile rows/cols.
+  const std::size_t tile_rows = (rows - 2 + TILE_SIZE - 1) / TILE_SIZE;
+  const std::size_t tile_cols = (cols - 2 + TILE_SIZE - 1) / TILE_SIZE;
 
-    // 5-point stencil: center weighted 0.5, each of the four
-    // neighbors (up/down/left/right) weighted 0.125.
-    #pragma omp simd
-    for (std::size_t j = 1; j < cols - 1; ++j) {
-      drow[j] = 0.5 * srow[j] +
-                0.125 * (srowU[j] + srowD[j] + srow[j - 1] + srow[j + 1]);
+  #pragma omp parallel for
+  for (std::size_t tile = 0; tile < tile_rows * tile_cols; ++tile) {
+    // Convert 1D tile index into a 2D tile coordinate.
+    const std::size_t tile_i = tile / tile_cols;
+    const std::size_t tile_j = tile % tile_cols;
+
+    // Convert the tile coordinate into a grid coordinate.
+    const std::size_t ii = 1 + tile_i * TILE_SIZE;
+    const std::size_t jj = 1 + tile_j * TILE_SIZE;
+
+    // Find the terminating row/col.
+    const std::size_t i_end = std::min(ii + TILE_SIZE, rows - 1);
+    const std::size_t j_end = std::min(jj + TILE_SIZE, cols - 1);
+
+    for (std::size_t i = ii; i < i_end; ++i) {
+      const double *__restrict srow = src + i * cols;
+      const double *__restrict srowU = src + (i - 1) * cols;
+      const double *__restrict srowD = src + (i + 1) * cols;
+      double *__restrict drow = dst + i * cols;
+
+      // 5-point stencil: center weighted 0.5, each of the four
+      // neighbors (up/down/left/right) weighted 0.125.
+      #pragma omp simd
+      for (std::size_t j = jj; j < j_end; ++j) {
+        drow[j] = 0.5 * srow[j] +
+                  0.125 * (srowU[j] + srowD[j] + srow[j - 1] + srow[j + 1]);
+      }
     }
   }
 }
-
