@@ -4,8 +4,6 @@
 #include <tuple>
 #include <vector>
 
-constexpr std::size_t TILE_SIZE = 100000;
-
 // 2D grid of doubles stored as a single row-major buffer.
 class Grid {
 private:

@@ -26,7 +26,7 @@ The relatively large variation between runs also suggests that individual benchm
 
 ## Optimization 1
 
-### Observation
+### Motivation
 
 In the first iteration, our operator function was as follows:
 
@@ -39,7 +39,7 @@ double& Grid::operator()(std::size_t i, std::size_t j) {
 
 For every element, recall that we'd be doing this check 5 times per interior node. This easily blows up when faced with increased node count. To optimize, ensure proper handling within the apply_stencil() function.
 
-### Performance
+### Results
 
 | Run | Runtime (ms) | Score |
 |---:|-------------:|------:|
