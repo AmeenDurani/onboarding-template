@@ -134,3 +134,16 @@ We don't actually need to copy the whole grid to satisfy the halo conditions (co
 ### Observation
 
 We can use tiling to improve cache locality by keeping the working set of each computation tile small enough to make better use of the L1 cache. Since the stencil is memory-bound rather than compute-bound, reducing the cost of memory accesses can improve overall performance.
+
+### Performance
+
+| Tile Size | Average Score |
+|---:|-------------:|
+| 16   | 1.2 |
+| 32   | 1.696|
+| 64   | 1.678|
+| 128 | 1.725 |
+|256 | 1.752 |
+| 512 | |
+
+Note, this is lower than our run with 1.9 (using OpenMP). The primary hypothesis behind why tiling didn't work is because the current memory layout (flattened, 1D array) is already very cache friendly.

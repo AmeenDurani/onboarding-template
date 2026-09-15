@@ -4,7 +4,7 @@
 #include <tuple>
 #include <vector>
 
-constexpr std::size_t TILE_SIZE = 256;
+constexpr std::size_t TILE_SIZE = 512;
 
 // 2D grid of doubles stored as a single row-major buffer.
 class Grid {
