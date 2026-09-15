@@ -50,9 +50,9 @@ For every element, recall that we'd be doing this check 5 times per interior nod
 
 ## Optimization 2
 
-### Motivation
+### Observation
 
-Computation is pretty much the same across every node, this optimization will investigate using parallel programming to compute new rows in parallel.
+Computation is largely the same across every node, so this optimization parallelizes row computation across threads instead of running it serially.
 
 **Added functions**:
 
@@ -107,10 +107,44 @@ void apply_stencil(const Grid &old_grid, Grid &new_grid) {
   }
 }
 ```
-### Results
+
+### Performance
 
 | Thread Count | Average Runtime (ms) | Average Score |
-|---:|---:|---:|
-| 1  | 387.377 | 0.486 |
-| 10 | 334.851 | 0.569 |
-| 16 | 332.414 | 0.581 |
+|-------------:|----------------------:|---------------:|
+| 1            | 387.377               | 0.486          |
+| 10           | 334.851               | 0.569          |
+| 16           | 332.414               | 0.581          |
+
+## Optimization 3
+### Observation
+
+We don't actually need to copy the whole grid to satisfy the halo conditions (constant BCs). A whole bunch of computation is wasted for copying the old grid to the new one, when instead we can create another wrapper function to satisfy the conditions by iterating over the grid manually.
+
+### Performance
+
+| Run | Runtime (ms) | Score |
+|---:|-------------:|------:|
+| 1   | 177.214      | 0.935 |
+| 2   | 176.190     | 1.010 |
+| 3   | 176.958      | 1.021 |
+| 4   | 188.581     | 0.966 |
+
+## Optimization 4
+### Observation
+
+We can use tiling to improve cache locality by keeping the working set of each computation tile small enough to make better use of the L1 cache. Since the stencil is memory-bound rather than compute-bound, reducing the cost of memory accesses can improve overall performance.
+
+### Performance
+
+| Tile Size | Average Score |
+|---:|-------------:|
+| 16   | 1.2 |
+| 32   | 1.696|
+| 64   | 1.678|
+| 128 | 1.725 |
+|256 | 1.752 |
+| 512 | | 1.772 |
+| 100000 | 0.958 |
+
+Note, this is lower than our run with 1.9 (using OpenMP). The primary hypothesis behind why tiling didn't work is because the current memory layout (flattened, 1D array) is already very cache friendly.

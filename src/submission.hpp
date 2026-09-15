@@ -1,120 +1,145 @@
 #pragma once
 
 #include <cstddef>
-#include <functional>
-#include <thread>
 #include <tuple>
 #include <vector>
 
-static constexpr std::size_t groups = 10;
-
-// Starter Grid for the 2D heat-diffusion problem.
-//
-// The evaluation harness uses operator() to set initial conditions and to read
-// results; it never touches your internal storage. Keep this interface,
-// everything else is yours.
+// 2D grid of doubles stored as a single row-major buffer.
 class Grid {
 private:
   std::size_t rows_;
   std::size_t cols_;
 
-  std::vector<std::vector<double>> grid_;
+  std::vector<double> nodes;
 
 public:
   Grid(std::size_t rows, std::size_t cols);
 
-  std::tuple<std::size_t, std::size_t> get_grid_dims() const;
+  // Returns (rows, cols).
+  std::tuple<std::size_t, std::size_t> get_dimensions() const;
 
+  // Row-major element access: nodes[i * cols_ + j].
   double &operator()(std::size_t i, std::size_t j);
   double operator()(std::size_t i, std::size_t j) const;
 
-  const std::vector<double> &operator()(std::size_t i) const;
-  std::vector<double> &operator()(std::size_t i);
+  // Raw access to the underlying buffer, e.g. for pointer-based/SIMD code.
+  double *data() { return nodes.data(); }
+  const double *data() const { return nodes.data(); }
 
+  // Copies the outer border (row 0, row rows_-1, col 0, col cols_-1) from
+  // ref into this grid, leaving the interior untouched.
   void copy_boundary(const Grid &ref);
 };
 
-Grid::Grid(std::size_t rows, std::size_t cols) {
-  grid_ = std::vector<std::vector<double>>(rows, std::vector<double>(cols, 0));
-  rows_ = rows;
-  cols_ = cols;
-}
+inline Grid::Grid(std::size_t rows, std::size_t cols)
+    : nodes(rows * cols), rows_(rows), cols_(cols) {}
 
-std::tuple<std::size_t, std::size_t> Grid::get_grid_dims() const {
+inline std::tuple<std::size_t, std::size_t> Grid::get_dimensions() const {
   return std::tuple<std::size_t, std::size_t>(rows_, cols_);
 }
 
-double &Grid::operator()(std::size_t i, std::size_t j) { return grid_[i][j]; }
-
-double Grid::operator()(std::size_t i, std::size_t j) const {
-  return grid_[i][j];
+inline double &Grid::operator()(std::size_t i, std::size_t j) {
+  return nodes[i * cols_ + j];
 }
 
-const std::vector<double> &Grid::operator()(std::size_t i) const {
-  return grid_[i];
+inline double Grid::operator()(std::size_t i, std::size_t j) const {
+  return nodes[i * cols_ + j];
 }
 
-std::vector<double> &Grid::operator()(std::size_t i) { return grid_[i]; }
+inline void Grid::copy_boundary(const Grid &ref) {
+  #pragma omp parallel
+  {
+    #pragma omp for
+    for (std::size_t i = 0; i < cols_; ++i) {
+      nodes[i] = ref(0, i);
+      nodes[(rows_ - 1) * cols_ + i] = ref(rows_ - 1, i);
+    }
 
-void Grid::copy_boundary(const Grid &ref) {
-  // Top and Bottom
-  grid_[0] = ref(0);
-  grid_[rows_ - 1] = ref(rows_ - 1);
-
-  // Row by Row
-  for (std::size_t i = 1; i < rows_ - 1; ++i) {
-    grid_[i][0] = ref(i, 0);
-    grid_[i][cols_ - 1] = ref(i, cols_ - 1);
+    #pragma omp for
+    for (std::size_t i = 1; i < rows_ - 1; ++i) {
+      nodes[i * cols_] = ref(i, 0);
+      nodes[i * cols_ + cols_ - 1] = ref(i, cols_ - 1);
+    }
   }
 }
 
-void calculate_row(const std::vector<double> &top,
-                   const std::vector<double> &middle,
-                   const std::vector<double> &bottom,
-                   std::vector<double> &output) {
-  std::size_t cols = top.size();
-  for (std::size_t j = 1; j < cols - 1; ++j) {
-    output[j] = 0.5 * middle[j] +
-                0.125 * (middle[j - 1] + middle[j + 1] + top[j] + bottom[j]);
-  }
-}
-
-void calculate_row_group(const Grid &input_grid, Grid &output_grid,
-                         std::size_t begin, std::size_t end) {
-  for (std::size_t i = begin; i < end; ++i) {
-    calculate_row(input_grid(i + 1), input_grid(i), input_grid(i - 1),
-                  output_grid(i));
-  }
-}
-
-// Apply the five-point stencil over all interior points, copying the boundary
-// values unchanged from old_grid to new_grid. Implement your solution here.
-void apply_stencil(const Grid &old_grid, Grid &new_grid) {
-  auto [rows, cols] = old_grid.get_grid_dims();
-
+// Computes new_grid from old_grid using a 5-point stencil over the
+// interior, and copies old_grid's boundary into new_grid unchanged.
+inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
+  auto [rows, cols] = old_grid.get_dimensions();
   new_grid.copy_boundary(old_grid);
 
   if (rows < 3 || cols < 3)
     return;
 
-  std::vector<std::thread> threads;
-  std::size_t interior_rows = rows - 2;
-  std::size_t base = interior_rows / groups;
-  std::size_t remainder = interior_rows % groups;
+  // __restrict promises src/dst don't alias, letting the compiler
+  // vectorize the inner loop.
+  const double *__restrict src = old_grid.data();
+  double *__restrict dst = new_grid.data();
 
-  std::size_t begin = 1;
+  // Interior rows are independent, so parallelize across them.
+  #pragma omp parallel for
+  for (std::size_t i = 1; i < rows - 1; ++i) {
+    const double *__restrict srow = src + i * cols;
+    const double *__restrict srowU = src + (i - 1) * cols;
+    const double *__restrict srowD = src + (i + 1) * cols;
+    double *__restrict drow = dst + i * cols;
 
-  for (std::size_t g = 0; g < groups; ++g) {
-    std::size_t chunk_size = base + (g < remainder ? 1 : 0);
-    std::size_t end = begin + chunk_size;
-
-    threads.emplace_back(calculate_row_group, std::cref(old_grid),
-                         std::ref(new_grid), begin, end);
-
-    begin = end;
-  }
-
-  for (auto &thread : threads) {
-    thread.join();
+    // 5-point stencil: center weighted 0.5, each of the four
+    // neighbors (up/down/left/right) weighted 0.125.
+    #pragma omp simd
+    for (std::size_t j = 1; j < cols - 1; ++j) {
+      drow[j] = 0.5 * srow[j] +
+                0.125 * (srowU[j] + srowD[j] + srow[j - 1] + srow[j + 1]);
+    }
   }
 }
+
+// DEPRECATED TILING CODE.
+//
+// inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
+//   auto [rows, cols] = old_grid.get_dimensions();
+//   new_grid.copy_boundary(old_grid);
+
+//   if (rows < 3 || cols < 3)
+//     return;
+
+//   // __restrict promises src/dst don't alias, letting the compiler
+//   // vectorize the inner loop.
+//   const double *__restrict src = old_grid.data();
+//   double *__restrict dst = new_grid.data();
+
+//   // Obtain max number of tile rows/cols.
+//   const std::size_t tile_rows = (rows - 2 + TILE_SIZE - 1) / TILE_SIZE;
+//   const std::size_t tile_cols = (cols - 2 + TILE_SIZE - 1) / TILE_SIZE;
+
+//   #pragma omp parallel for
+//   for (std::size_t tile = 0; tile < tile_rows * tile_cols; ++tile) {
+//     // Convert 1D tile index into a 2D tile coordinate.
+//     const std::size_t tile_i = tile / tile_cols;
+//     const std::size_t tile_j = tile % tile_cols;
+
+//     // Convert the tile coordinate into a grid coordinate.
+//     const std::size_t ii = 1 + tile_i * TILE_SIZE;
+//     const std::size_t jj = 1 + tile_j * TILE_SIZE;
+
+//     // Find the terminating row/col.
+//     const std::size_t i_end = std::min(ii + TILE_SIZE, rows - 1);
+//     const std::size_t j_end = std::min(jj + TILE_SIZE, cols - 1);
+
+//     for (std::size_t i = ii; i < i_end; ++i) {
+//       const double *__restrict srow = src + i * cols;
+//       const double *__restrict srowU = src + (i - 1) * cols;
+//       const double *__restrict srowD = src + (i + 1) * cols;
+//       double *__restrict drow = dst + i * cols;
+
+//       // 5-point stencil: center weighted 0.5, each of the four
+//       // neighbors (up/down/left/right) weighted 0.125.
+//       #pragma omp simd
+//       for (std::size_t j = jj; j < j_end; ++j) {
+//         drow[j] = 0.5 * srow[j] +
+//                   0.125 * (srowU[j] + srowD[j] + srow[j - 1] + srow[j + 1]);
+//       }
+//     }
+//   }
+// }
