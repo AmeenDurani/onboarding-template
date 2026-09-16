@@ -144,7 +144,7 @@ We can use tiling to improve cache locality by keeping the working set of each c
 | 64   | 1.678|
 | 128 | 1.725 |
 |256 | 1.752 |
-| 512 | | 1.772 |
+| 512 | 1.772 |
 | 100000 | 0.958 |
 
 Note, this is lower than our run with 1.9 (using OpenMP). The primary hypothesis behind why tiling didn't work is because the current memory layout (flattened, 1D array) is already very cache friendly.
