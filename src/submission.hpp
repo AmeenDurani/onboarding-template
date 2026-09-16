@@ -52,6 +52,7 @@ void copy_boundary(const double *src, double *dst, std::size_t rows_,
   memcpy(dst + (rows_ - 1) * cols_, src + (rows_ - 1) * cols_,
          cols_ * sizeof(double));
 
+  #pragma omp parallel for
   for (std::size_t i = 1; i < rows_ - 1; ++i) {
     const double *__restrict srow = src + i * cols_;
     double *__restrict drow = dst + i * cols_;
@@ -68,6 +69,7 @@ inline void inner_compute(const double *src, double *dst, std::size_t rows_,
     return;
 
   // Interior rows are independent, so parallelize across them.
+  #pragma omp parallel for
   for (std::size_t i = 1; i < rows_ - 1; ++i) {
     const double *__restrict srow = src + i * cols_;
     const double *__restrict srowU = src + (i - 1) * cols_;
@@ -76,6 +78,7 @@ inline void inner_compute(const double *src, double *dst, std::size_t rows_,
 
     // 5-point stencil: center weighted 0.5, each of the four
     // neighbors (up/down/left/right) weighted 0.125.
+    #pragma omp simd
     for (std::size_t j = 1; j < cols_ - 1; ++j) {
       drow[j] = 0.5 * srow[j] +
                 0.125 * (srowU[j] + srowD[j] + srow[j - 1] + srow[j + 1]);
