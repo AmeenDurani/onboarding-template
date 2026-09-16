@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <tuple>
 #include <vector>
+#include <cstring>
 
 // 2D grid of doubles stored as a single row-major buffer.
 class Grid {
