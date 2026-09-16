@@ -10,7 +10,6 @@ class Grid {
 private:
   std::size_t rows_;
   std::size_t cols_;
-
   std::vector<double> nodes;
 
 public:
@@ -45,7 +44,7 @@ inline double Grid::operator()(std::size_t i, std::size_t j) const {
 
 // Copies the outer border (row 0, row rows_-1, col 0, col cols_-1) from
 // ref into this grid, leaving the interior untouched.
-void copy_boundary(const double *src, double *dst, std::size_t rows_,
+inline void copy_boundary(const double *src, double *dst, std::size_t rows_,
                    std::size_t cols_) {
 
   // Use memcpy since memory is contiguous.
@@ -53,6 +52,7 @@ void copy_boundary(const double *src, double *dst, std::size_t rows_,
   memcpy(dst + (rows_ - 1) * cols_, src + (rows_ - 1) * cols_,
          cols_ * sizeof(double));
 
+  // Iterate over rows for copying verticle boundaries.
   #pragma omp parallel for
   for (std::size_t i = 1; i < rows_ - 1; ++i) {
     const double *__restrict srow = src + i * cols_;
@@ -63,6 +63,8 @@ void copy_boundary(const double *src, double *dst, std::size_t rows_,
   }
 }
 
+// Computes grid nodes within the defined boundaries using the 2D heat diffusion
+// equation.
 inline void inner_compute(const double *src, double *dst, std::size_t rows_,
                           std::size_t cols_) {
   // Check if there are any interior nodes to perform operations on.
