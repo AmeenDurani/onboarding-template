@@ -75,7 +75,7 @@ inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
   const double *__restrict src = old_grid.data();
   double *__restrict dst = new_grid.data();
 
-  const std::size_t tile_size = 128;
+  const std::size_t tile_size = 96;
   const std::size_t tile_rows_count = (rows - 2 + tile_size - 1) / tile_size;
   const std::size_t tile_columns_count = (columns - 2 + tile_size - 1) / tile_size;
 
