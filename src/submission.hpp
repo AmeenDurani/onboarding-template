@@ -80,7 +80,7 @@ inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
   const std::size_t tile_columns_count = (columns - 2 + tile_size - 1) / tile_size;
 
   // Grid cell traversal.
-  #pragma omp parallel for
+  #pragma omp parallel for schedule(static)
   for (std::size_t tile_row = 0; tile_row < tile_rows_count; ++tile_row) {
     for (std::size_t tile_column = 0; tile_column < tile_columns_count; ++tile_column) {
 
