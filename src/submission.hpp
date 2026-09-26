@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <tuple>
 #include <vector>
+#include <algorithm>
 
 // 2D grid of doubles stored as a single row-major buffer.
 class Grid {
@@ -66,31 +67,42 @@ inline void Grid::copy_boundary(const Grid &ref) {
 // Computes new_grid from old_grid using a 5-point stencil over the
 // interior, and copies old_grid's boundary into new_grid unchanged.
 inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
-  auto [rows, cols] = old_grid.get_dimensions();
   new_grid.copy_boundary(old_grid);
+  auto [rows, columns] = old_grid.get_dimensions();
 
-  if (rows < 3 || cols < 3)
-    return;
+  if (rows < 3 || columns < 3) return;
 
-  // __restrict promises src/dst don't alias, letting the compiler
-  // vectorize the inner loop.
   const double *__restrict src = old_grid.data();
   double *__restrict dst = new_grid.data();
 
-  // Interior rows are independent, so parallelize across them.
-  #pragma omp parallel for
-  for (std::size_t i = 1; i < rows - 1; ++i) {
-    const double *__restrict srow = src + i * cols;
-    const double *__restrict srowU = src + (i - 1) * cols;
-    const double *__restrict srowD = src + (i + 1) * cols;
-    double *__restrict drow = dst + i * cols;
+  const std::size_t tile_size = 32;
+  const std::size_t tile_rows_count = (rows - 2 + tile_size - 1) / tile_size;
+  const std::size_t tile_columns_count = (columns - 2 + tile_size - 1) / tile_size;
 
-    // 5-point stencil: center weighted 0.5, each of the four
-    // neighbors (up/down/left/right) weighted 0.125.
-    #pragma omp simd
-    for (std::size_t j = 1; j < cols - 1; ++j) {
-      drow[j] = 0.5 * srow[j] +
+  // Grid cell traversal.
+  #pragma omp parallel for collapse(2)
+  for (auto tile_row{0uz}; tile_row < tile_rows_count; ++tile_row) {
+    for (auto tile_column{0uz}; tile_column < tile_columns_count; ++tile_column) {
+
+      const std::size_t row_begin = 1 + tile_row * tile_size;
+      const std::size_t row_end = std::min(row_begin + tile_size, rows - 1);
+
+      const std::size_t column_begin = 1 + tile_column * tile_size;
+      const std::size_t column_end = std::min(column_begin + tile_size, columns - 1);
+
+      // Interior cell traversal.
+      for (auto i{row_begin}; i < row_end; ++i) {
+        const double *__restrict srow = src + i * columns;
+        const double *__restrict srowU = src + (i - 1) * columns;
+        const double *__restrict srowD = src + (i + 1) * columns;
+        double *__restrict drow = dst + i * columns;
+
+        #pragma omp simd
+        for (auto j{column_begin}; j < column_end; ++j) {
+          drow[j] = 0.5 * srow[j] +
                 0.125 * (srowU[j] + srowD[j] + srow[j - 1] + srow[j + 1]);
+        }
+      }
     }
   }
 }
