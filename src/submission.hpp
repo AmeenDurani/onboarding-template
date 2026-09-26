@@ -81,8 +81,8 @@ inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
 
   // Grid cell traversal.
   #pragma omp parallel for collapse(2)
-  for (auto tile_row{0uz}; tile_row < tile_rows_count; ++tile_row) {
-    for (auto tile_column{0uz}; tile_column < tile_columns_count; ++tile_column) {
+  for (std::size_t tile_row = 0; tile_row < tile_rows_count; ++tile_row) {
+    for (std::size_t tile_column = 0; tile_column < tile_columns_count; ++tile_column) {
 
       const std::size_t row_begin = 1 + tile_row * tile_size;
       const std::size_t row_end = std::min(row_begin + tile_size, rows - 1);
@@ -91,14 +91,14 @@ inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
       const std::size_t column_end = std::min(column_begin + tile_size, columns - 1);
 
       // Interior cell traversal.
-      for (auto i{row_begin}; i < row_end; ++i) {
+      for (std::size_t i = row_begin; i < row_end; ++i) {
         const double *__restrict srow = src + i * columns;
         const double *__restrict srowU = src + (i - 1) * columns;
         const double *__restrict srowD = src + (i + 1) * columns;
         double *__restrict drow = dst + i * columns;
 
         #pragma omp simd
-        for (auto j{column_begin}; j < column_end; ++j) {
+        for (std::size_t j = column_begin; j < column_end; ++j) {
           drow[j] = 0.5 * srow[j] +
                 0.125 * (srowU[j] + srowD[j] + srow[j - 1] + srow[j + 1]);
         }
