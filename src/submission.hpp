@@ -108,9 +108,7 @@ inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
       __m256d down = _mm256_loadu_pd(srowD + j); 
 
       // Calculate sum or adjacent tiles.
-      __m256d lr = _mm256_add_pd(prev, next);
-      __m256d td = _mm256_add_pd(up, down);
-      __m256d adj = _mm256_add_pd(lr, td);
+      __m256d adj = _mm256_add_pd(_mm256_add_pd(_mm256_add_pd(up, down), prev), next);
 
       // Calculate 0.5 * curr.
       __m256d nc = _mm256_mul_pd(curr, half);
