@@ -63,6 +63,10 @@ inline void Grid::copy_boundary(const Grid &ref) {
   }
 }
 
+inline double calculate(const double c, const double u, const double d, const double l, const double r) {
+  return 0.5 * c + 0.125 * (u + d + l + r);
+}
+
 // Computes new_grid from old_grid using a 5-point stencil over the
 // interior, and copies old_grid's boundary into new_grid unchanged.
 inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
@@ -88,9 +92,10 @@ inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
     // 5-point stencil: center weighted 0.5, each of the four
     // neighbors (up/down/left/right) weighted 0.125.
     #pragma omp simd
-    for (std::size_t j = 1; j < cols - 1; ++j) {
-      drow[j] = 0.5 * srow[j] +
-                0.125 * (srowU[j] + srowD[j] + srow[j - 1] + srow[j + 1]);
+    for (std::size_t j = 1; j < cols - 4; j += 4) {
+      
+
+      drow[j] = calculate(srow[j], srowU[j], srowD[j], srow[j - 1], srow[j + 1]);
     }
   }
 }
