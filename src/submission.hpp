@@ -94,11 +94,14 @@ inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
     const double *__restrict srowD = src + (i + 1) * cols;
     double *__restrict drow = dst + i * cols;
 
-    // 5-point stencil: center weighted 0.5, each of the four
-    // neighbors (up/down/left/right) weighted 0.125.
-
     std::size_t j = 1;
-    for (; j + 3 < cols - 1; j += 4) {
+    
+    // Hand-vectorized with AVX2: each iteration computes 4 outputs at once.
+    // This cuts the instruction count (and compute work) per element, but the
+    // stencil is memory-bandwidth bound: each output still needs the same bytes
+    // loaded and stored, so the original benchmark was already limited by
+    // memory traffic, not ALU throughput.
+    for (; j + 4 < cols; j += 4) {
 
       // Loads.
       __m256d prev = _mm256_loadu_pd(srow - 1 + j);
