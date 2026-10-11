@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <tuple>
 #include <vector>
+#include <immintrin.h>
 
 // 2D grid of doubles stored as a single row-major buffer.
 class Grid {
@@ -91,10 +92,37 @@ inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
 
     // 5-point stencil: center weighted 0.5, each of the four
     // neighbors (up/down/left/right) weighted 0.125.
-    #pragma omp simd
-    for (std::size_t j = 1; j < cols - 4; j += 4) {
-      
 
+    std::size_t j = 1;
+    for (; j < cols - 4; j += 4) {
+
+      // Loads.
+      __m256d prev = _mm256_loadu_pd(srow - 1 + j);
+      __m256d curr = _mm256_loadu_pd(srow + j);
+      __m256d next = _mm256_loadu_pd(srow + 1 + j);
+      __m256d up = _mm256_loadu_pd(srowU + j); 
+      __m256d down = _mm256_loadu_pd(srowD + j); 
+
+      // Constants.
+      __m256d half = _mm256_set1_pd(0.5);
+      __m256d quart = _mm256_set1_pd(0.125);
+
+      // Calculate sum or adjacent tiles.
+      __m256d lr = _mm256_add_pd(prev, next);
+      __m256d td = _mm256_add_pd(up, down);
+      __m256d adj = _mm256_add_pd(lr, td);
+
+      // Calculate 0.5 * curr.
+      __m256d nc = _mm256_mul_pd(curr, half);
+
+      // Multiply adjacent sums by 0.125 and add to 0.5 * curr.
+      __m256d res = _mm256_fmadd_pd(adj, quart, nc);
+
+      // Store in destination buffer.
+      _mm256_storeu_pd(drow + j, res);
+    }
+
+    for (; j < cols - 1; ++j) {
       drow[j] = calculate(srow[j], srowU[j], srowD[j], srow[j - 1], srow[j + 1]);
     }
   }
