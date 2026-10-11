@@ -82,6 +82,10 @@ inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
   const double *__restrict src = old_grid.data();
   double *__restrict dst = new_grid.data();
 
+  // Constants.
+  __m256d half = _mm256_set1_pd(0.5);
+  __m256d quart = _mm256_set1_pd(0.125);
+
   // Interior rows are independent, so parallelize across them.
   #pragma omp parallel for
   for (std::size_t i = 1; i < rows - 1; ++i) {
@@ -102,10 +106,6 @@ inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
       __m256d next = _mm256_loadu_pd(srow + 1 + j);
       __m256d up = _mm256_loadu_pd(srowU + j); 
       __m256d down = _mm256_loadu_pd(srowD + j); 
-
-      // Constants.
-      __m256d half = _mm256_set1_pd(0.5);
-      __m256d quart = _mm256_set1_pd(0.125);
 
       // Calculate sum or adjacent tiles.
       __m256d lr = _mm256_add_pd(prev, next);
