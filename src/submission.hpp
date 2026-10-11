@@ -98,7 +98,7 @@ inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
     // neighbors (up/down/left/right) weighted 0.125.
 
     std::size_t j = 1;
-    for (; j < cols - 4; j += 4) {
+    for (; j + 3 < cols - 1; j += 4) {
 
       // Loads.
       __m256d prev = _mm256_loadu_pd(srow - 1 + j);
@@ -119,7 +119,7 @@ inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
       //__m256d res = _mm256_fmadd_pd(adj, quart, nc);
       __m256d scaled = _mm256_mul_pd(adj, quart);
       __m256d res = _mm256_add_pd(scaled, nc);
-      
+
       // Store in destination buffer.
       _mm256_storeu_pd(drow + j, res);
     }
