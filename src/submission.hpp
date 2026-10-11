@@ -116,8 +116,10 @@ inline void apply_stencil(const Grid &old_grid, Grid &new_grid) {
       __m256d nc = _mm256_mul_pd(curr, half);
 
       // Multiply adjacent sums by 0.125 and add to 0.5 * curr.
-      __m256d res = _mm256_fmadd_pd(adj, quart, nc);
-
+      //__m256d res = _mm256_fmadd_pd(adj, quart, nc);
+      __m256d scaled = _mm256_mul_pd(adj, quart);
+      __m256d res = _mm256_add_pd(scaled, nc);
+      
       // Store in destination buffer.
       _mm256_storeu_pd(drow + j, res);
     }
